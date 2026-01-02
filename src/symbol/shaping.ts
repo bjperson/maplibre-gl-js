@@ -57,6 +57,7 @@ export type Shaping = {
     text: string;
     iconsInText: boolean;
     verticalizable: boolean;
+    stretch: number;
 };
 
 type ShapingSectionAttributes = {
@@ -120,7 +121,8 @@ function shapeText(
     writingMode: WritingMode.horizontal | WritingMode.vertical,
     allowVerticalPlacement: boolean,
     layoutTextSize: number,
-    layoutTextSizeThisZoom: number
+    layoutTextSizeThisZoom: number,
+    stretch: number = 1
 ): Shaping | false {
     const logicalInput = TaggedString.fromFeature(text, defaultFontStack);
 
@@ -183,10 +185,11 @@ function shapeText(
         right: translate[0],
         writingMode,
         iconsInText: false,
-        verticalizable: false
+        verticalizable: false,
+        stretch
     };
 
-    shapeLines(shaping, glyphMap, glyphPositions, imagePositions, lines, lineHeight, textAnchor, textJustify, writingMode, spacing, allowVerticalPlacement, layoutTextSizeThisZoom);
+    shapeLines(shaping, glyphMap, glyphPositions, imagePositions, lines, lineHeight, textAnchor, textJustify, writingMode, spacing, allowVerticalPlacement, layoutTextSizeThisZoom, stretch);
     if (isEmpty(positionedLines)) return false;
 
     return shaping;
@@ -305,7 +308,8 @@ function shapeLines(shaping: Shaping,
     writingMode: WritingMode.horizontal | WritingMode.vertical,
     spacing: number,
     allowVerticalPlacement: boolean,
-    layoutTextSizeThisZoom: number) {
+    layoutTextSizeThisZoom: number,
+    stretch: number = 1) {
 
     let x = 0;
     let y = 0;
@@ -380,7 +384,8 @@ function shapeLines(shaping: Shaping,
             positionedGlyphs.push(positionedGlyph);
 
             if (!vertical) {
-                x += metrics.advance * section.scale + spacing;
+                // Apply stretch factor to horizontal advance (for region/ocean labels)
+                x += metrics.advance * section.scale * stretch + spacing * stretch;
             } else {
                 shaping.verticalizable = true;
                 const verticalAdvance = 'imageName' in section ? metrics.advance : ONE_EM;

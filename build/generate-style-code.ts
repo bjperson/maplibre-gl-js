@@ -4,6 +4,26 @@ import * as fs from 'fs';
 
 import {v8} from '@maplibre/maplibre-gl-style-spec';
 
+// Custom properties not yet in the official style spec
+// text-stretch: Stretches text horizontally for cartographic labels (regions, oceans, etc.)
+const customLayoutProperties: Record<string, Record<string, any>> = {
+    symbol: {
+        'text-stretch': {
+            type: 'number',
+            default: 1,
+            minimum: 0.1,
+            maximum: 10,
+            doc: 'Horizontal stretch factor for text. 1.0 is normal, 2.0 doubles the width. Useful for region/ocean labels that need to span a geographic area.',
+            requires: ['text-field'],
+            'property-type': 'data-driven',
+            expression: {
+                interpolated: true,
+                parameters: ['zoom', 'feature']
+            }
+        }
+    }
+};
+
 function camelCase(str: string): string {
     return str.replace(/-(.)/g, (_, x) => {
         return x.toUpperCase();
@@ -122,7 +142,23 @@ function overrides(property) {
 }
 
 function propertyValue(property, type) {
-    const propertyAsSpec = `styleSpec["${type}_${property.layerType}"]["${property.name}"] as any as StylePropertySpecification`;
+    // Check if this is a custom property (not in the official style spec)
+    const isCustomProperty = customLayoutProperties[property.layerType]?.[property.name];
+
+    let propertyAsSpec: string;
+    if (isCustomProperty) {
+        // For custom properties, inline the spec definition
+        const specDef = {
+            type: property.type,
+            default: property.default,
+            minimum: property.minimum,
+            maximum: property.maximum,
+            expression: property.expression
+        };
+        propertyAsSpec = `${JSON.stringify(specDef)} as any as StylePropertySpecification`;
+    } else {
+        propertyAsSpec = `styleSpec["${type}_${property.layerType}"]["${property.name}"] as any as StylePropertySpecification`;
+    }
 
     switch (property['property-type']) {
         case 'data-driven':
@@ -154,6 +190,14 @@ const layers = Object.keys(v8.layer.type.values).map((type) => {
         }
         return memo;
     }, []);
+
+    // Inject custom layout properties for this layer type
+    if (customLayoutProperties[type]) {
+        for (const [name, prop] of Object.entries(customLayoutProperties[type])) {
+            const customProp = {...prop as object, name, layerType: type};
+            layoutProperties.push(customProp);
+        }
+    }
 
     const paintProperties = Object.keys(v8[`paint_${type}`]).reduce((memo, name) => {
         v8[`paint_${type}`][name].name = name;

@@ -29,9 +29,11 @@ uniform float u_fade_change;
 uniform vec2 u_texsize;
 uniform vec2 u_translation;
 uniform float u_pitched_scale;
+uniform float u_stretch;
 
 out vec2 v_data0;
 out vec3 v_data1;
+out float v_stretch;
 
 #pragma mapbox: define highp vec4 fill_color
 #pragma mapbox: define highp vec4 halo_color
@@ -140,4 +142,5 @@ void main() {
 
     v_data0 = a_tex / u_texsize;
     v_data1 = vec3(gamma_scale, size, interpolated_fade_opacity);
+    v_stretch = u_stretch;
 }

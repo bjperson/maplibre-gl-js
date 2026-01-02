@@ -243,6 +243,7 @@ export function getGlyphQuads(
 
     const textRotate = layer.layout.get('text-rotate').evaluate(feature, {}) * Math.PI / 180;
     const quads = [];
+    const stretch = shaping.stretch || 1;
 
     for (const line of shaping.positionedLines) {
         for (const positionedGlyph of line.positionedGlyphs) {
@@ -257,7 +258,8 @@ export function getGlyphQuads(
             let lineOffset = 0.0;
 
             const rotateVerticalGlyph = (alongLine || allowVerticalPlacement) && positionedGlyph.vertical;
-            const halfAdvance = positionedGlyph.metrics.advance * positionedGlyph.scale / 2;
+            // Apply stretch to halfAdvance to match the stretched positioning from shaping
+            const halfAdvance = positionedGlyph.metrics.advance * positionedGlyph.scale * stretch / 2;
 
             // Align images and scaled glyphs in the middle of a vertical line.
             if (allowVerticalPlacement && shaping.verticalizable) {
@@ -291,10 +293,18 @@ export function getGlyphQuads(
 
             const textureScale = positionedGlyph.metrics.isDoubleResolution ? 2 : 1;
 
-            const x1 = (positionedGlyph.metrics.left - rectBuffer) * positionedGlyph.scale - halfAdvance + builtInOffset[0];
-            const y1 = (-positionedGlyph.metrics.top - rectBuffer) * positionedGlyph.scale + builtInOffset[1];
-            const x2 = x1 + textureRect.w / textureScale * positionedGlyph.scale / pixelRatio;
-            const y2 = y1 + textureRect.h / textureScale * positionedGlyph.scale / pixelRatio;
+            // Apply stretch factor to horizontal dimensions for visual glyph stretching
+            // Also apply a subtle vertical scale (pow 0.25) to maintain proportions
+            const verticalStretch = Math.pow(stretch, 0.25);
+            const x1 = (positionedGlyph.metrics.left - rectBuffer) * positionedGlyph.scale * stretch - halfAdvance + builtInOffset[0];
+            const glyphHeight = textureRect.h / textureScale * positionedGlyph.scale / pixelRatio;
+            const baseY1 = (-positionedGlyph.metrics.top - rectBuffer) * positionedGlyph.scale + builtInOffset[1];
+            // Center vertical expansion around glyph center
+            const verticalExpansion = (glyphHeight * verticalStretch - glyphHeight) / 2;
+            const y1 = baseY1 - verticalExpansion;
+            const glyphWidth = textureRect.w / textureScale * positionedGlyph.scale / pixelRatio;
+            const x2 = x1 + glyphWidth * stretch;
+            const y2 = y1 + glyphHeight * verticalStretch;
 
             const tl = new Point(x1, y1);
             const tr = new Point(x2, y1);
